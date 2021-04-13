@@ -59,18 +59,18 @@ void operator >> (const YAML::Node& node, T& i)
 class MapServer
 {
   public:
-    /** Trivial constructor */
-    MapServer(const std::string& fname, double res)
-    {
+
+    void loadMapFromFile(const std::string& fname, double res){
       std::string mapfname = "";
       double origin[3];
       int negate;
       double occ_th, free_th;
       MapMode mode = TRINARY;
       std::string frame_id;
+      deprecated_ = (res != 0);
       ros::NodeHandle private_nh("~");
       private_nh.param("frame_id", frame_id, std::string("map"));
-      deprecated_ = (res != 0);
+      
       if (!deprecated_) {
         //mapfname = fname + ".pgm";
         //std::ifstream fin((fname + ".yaml").c_str());
@@ -189,9 +189,6 @@ class MapServer
                map_resp_.map.info.resolution);
       meta_data_message_ = map_resp_.map.info;
 
-      get_map_service_ = nh_.advertiseService("static_map", &MapServer::mapCallback, this);
-      //pub = nh_.advertise<nav_msgs::MapMetaData>("map_metadata", 1,
-
       // Latched publisher for metadata
       metadata_pub_= nh_.advertise<nav_msgs::MapMetaData>("map_metadata", 1, true);
       metadata_pub_.publish( meta_data_message_ );
@@ -201,15 +198,37 @@ class MapServer
       map_pub_.publish( map_resp_.map );
     }
 
+
+    /** Trivial constructor */
+    MapServer(const std::string& fname, double res)
+    {
+      loadMapFromFile(fname, res);
+
+      get_map_service_ = nh_.advertiseService("static_map", &MapServer::getMapCallback, this);
+      load_map_service_ = nh_.advertiseService("change_map", &MapServer::loadMapCallback, this);
+    }
+
   private:
     ros::NodeHandle nh_;
     ros::Publisher map_pub_;
     ros::Publisher metadata_pub_;
     ros::ServiceServer get_map_service_;
+    ros::ServiceServer load_map_service_;
     bool deprecated_;
 
+
+    bool loadMapCallback(nav_msgs::LoadMap::Request &req, 
+                        nav_msgs::LoadMap::Response &res){
+      ROS_INFO("set map from file %s", req.fpath.data.c_str());
+      loadMapFromFile(req.fpath.data.c_str(), 0.0);
+      bool suc = true;
+      ROS_INFO("success %s", suc ? "true": "false");
+      //res.success = suc;
+      return suc;
+    }
+
     /** Callback invoked when someone requests our service */
-    bool mapCallback(nav_msgs::GetMap::Request  &req,
+    bool getMapCallback(nav_msgs::GetMap::Request  &req,
                      nav_msgs::GetMap::Response &res )
     {
       // request is empty; we ignore it
@@ -238,6 +257,9 @@ class MapServer
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "map_server", ros::init_options::AnonymousName);
+
+   ROS_INFO("success");
+
   if(argc != 3 && argc != 2)
   {
     ROS_ERROR("%s", USAGE);

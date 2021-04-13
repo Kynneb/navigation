@@ -34,7 +34,7 @@
  */
 
 #include "nav_msgs/GetMap.h"
-
+#include "nav_msgs/LoadMap.h"
 /** Map mode
  *  Default: TRINARY -
  *      value >= occ_th - Occupied (100)
